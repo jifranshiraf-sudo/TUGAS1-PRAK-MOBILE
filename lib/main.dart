@@ -1,0 +1,1466 @@
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'dart:io';
+
+import 'package:image_picker/image_picker.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+void main() {
+  // Ikon status bar (jam, baterai, sinyal) dibuat putih supaya terlihat
+  // jelas di atas header yang berwarna gradasi.
+  SystemChrome.setSystemUIOverlayStyle(
+    const SystemUiOverlayStyle(
+      statusBarColor: Colors.transparent,
+      statusBarIconBrightness: Brightness.light,
+      statusBarBrightness: Brightness.dark,
+    ),
+  );
+  runApp(const MyApp());
+}
+
+/// Palet warna aplikasi (dikumpulkan di satu tempat supaya mudah diubah).
+class AppColor {
+  static const Color gradientStart = Color(0xFF1B1715); // hitam tua
+  static const Color gradientEnd = Color(0xFF5B4338); // cokelat tua
+  static const Color background = Color(0xFFF6F0E7); // krem vintage
+  static const Color panel = Color(0xFFFDF9F3); // putih krem
+  static const Color textDark = Color(0xFF2D201C);
+  static const Color textGrey = Color(0xFF79675F);
+  static const Color gold = Color(0xFFC8A76A);
+  static const Color bronze = Color(0xFF9F7A5A);
+  static const Color accent = Color(0xFFB38A5A);
+}
+
+/// Data biodata (ubah di sini kalau datanya berubah).
+class Biodata {
+  static const String nama = 'JIFRAN AL SHIRAF';
+  static const String npm = '2408007010046';
+  static const String alamat = 'BANDA ACEH';
+  static const String foto = 'assets/images/foto_profil.png';
+}
+
+class MyApp extends StatelessWidget {
+  const MyApp({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      debugShowCheckedModeBanner: false,
+      title: 'Biodata Diri',
+      theme: ThemeData(
+        useMaterial3: true,
+        scaffoldBackgroundColor: AppColor.background,
+      ),
+      home: const BiodataPage(),
+    );
+  }
+}
+
+class BiodataPage extends StatelessWidget {
+  const BiodataPage({super.key});
+
+  // Status bar transparan + ikon putih, menyesuaikan header gradasi.
+  static const SystemUiOverlayStyle _statusBar = SystemUiOverlayStyle(
+    statusBarColor: Colors.transparent,
+    statusBarIconBrightness: Brightness.light,
+    statusBarBrightness: Brightness.dark,
+  );
+
+  @override
+  Widget build(BuildContext context) {
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: _statusBar,
+      child: Scaffold(
+        backgroundColor: AppColor.background,
+        // ====== TAMBAHAN: tombol untuk membuka halaman Hasil Ujian ======
+        // Tampilan biodata di bawah ini TIDAK diubah sama sekali.
+        floatingActionButton: FloatingActionButton.extended(
+          backgroundColor: AppColor.gradientEnd,
+          foregroundColor: Colors.white,
+          icon: const Icon(Icons.fact_check_rounded),
+          label: const Text('Hasil Ujian'),
+          onPressed: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => const HasilUjianPage()),
+            );
+          },
+        ),
+        // ====== TAMBAHAN: body dibungkus Stack supaya tombol popup input
+        // bisa diletakkan di sudut kanan atas. Isi halaman TIDAK diubah.
+        body: Stack(
+          children: [
+            SingleChildScrollView(
+          child: Column(
+            children: [
+              const _HeaderProfile(),
+              const SizedBox(height: 26),
+
+              // ====== KARTU DATA DIRI ======
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 22),
+                child: Column(
+                  children: [
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: Padding(
+                        padding: const EdgeInsets.only(left: 4, bottom: 12),
+                        child: Text(
+                          'IDENTITAS DIRI',
+                          style: TextStyle(
+                            fontSize: 12,
+                            letterSpacing: 2.2,
+                            fontWeight: FontWeight.w800,
+                            color: AppColor.textGrey,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const InfoTile(
+                      icon: Icons.person_rounded,
+                      label: 'NAMA',
+                      value: Biodata.nama,
+                      color: AppColor.gold,
+                    ),
+                    const SizedBox(height: 14),
+                    const InfoTile(
+                      icon: Icons.badge_rounded,
+                      label: 'NPM',
+                      value: Biodata.npm,
+                      color: AppColor.bronze,
+                    ),
+                    const SizedBox(height: 14),
+                    const InfoTile(
+                      icon: Icons.home_rounded,
+                      label: 'ALAMAT',
+                      value: Biodata.alamat,
+                      color: AppColor.accent,
+                    ),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 24),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 18,
+                  vertical: 10,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.55),
+                  borderRadius: BorderRadius.circular(999),
+                  border: Border.all(color: const Color(0xFFE7D8BC)),
+                ),
+                child: Text(
+                  'Flutter • Biodata Mahasiswa',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: AppColor.textGrey,
+                    letterSpacing: 1.2,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 28),
+            ],
+          ),
+        ),
+            // ====== TAMBAHAN: tombol popup input data di sudut kanan atas ======
+            Positioned(
+              top: MediaQuery.of(context).padding.top + 14,
+              right: 16,
+              child: const PopupInputDataButton(),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Header: gradasi warna + foto profil bulat di bagian paling atas.
+class _HeaderProfile extends StatelessWidget {
+  const _HeaderProfile();
+
+  @override
+  Widget build(BuildContext context) {
+    final double topPadding = MediaQuery.of(context).padding.top;
+
+    return ClipRRect(
+      borderRadius: const BorderRadius.vertical(bottom: Radius.circular(40)),
+      child: Container(
+        width: double.infinity,
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [AppColor.gradientStart, AppColor.gradientEnd],
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Color(0xFF2E201A),
+              blurRadius: 18,
+              offset: Offset(0, 8),
+            ),
+          ],
+        ),
+        child: Stack(
+          clipBehavior: Clip.hardEdge,
+          children: [
+            Positioned(top: -70, right: -40, child: _decorCircle(210)),
+            Positioned(bottom: -90, left: -65, child: _decorCircle(210)),
+            Positioned(
+              bottom: 0,
+              left: 0,
+              right: 0,
+              child: Container(
+                height: 18,
+                color: const Color(0xFF201815).withValues(alpha: 0.18),
+              ),
+            ),
+            Padding(
+              padding: EdgeInsets.fromLTRB(24, topPadding + 28, 24, 42),
+              child: Column(
+                children: [
+                  const _AvatarFoto(),
+                  const SizedBox(height: 20),
+                  Text(
+                    'BIODATA MAHASISWA',
+                    style: TextStyle(
+                      fontSize: 12,
+                      letterSpacing: 3,
+                      fontWeight: FontWeight.w700,
+                      color: AppColor.gold,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 18,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      border: Border(
+                        bottom: BorderSide(
+                          color: AppColor.gold.withValues(alpha: 0.9),
+                          width: 2,
+                        ),
+                      ),
+                    ),
+                    child: const Text(
+                      Biodata.nama,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.w800,
+                        color: Colors.white,
+                        letterSpacing: 1.1,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 18,
+                      vertical: 9,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.10),
+                      borderRadius: BorderRadius.circular(24),
+                      border: Border.all(
+                        color: Colors.white.withValues(alpha: 0.35),
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(
+                          Icons.badge_outlined,
+                          size: 16,
+                          color: AppColor.gold,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          'NPM ${Biodata.npm}',
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.white,
+                            letterSpacing: 0.6,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _decorCircle(double size) {
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: Colors.white.withValues(alpha: 0.08),
+      ),
+    );
+  }
+}
+
+/// Foto profil bulat dengan bingkai putih + bayangan.
+class _AvatarFoto extends StatelessWidget {
+  const _AvatarFoto();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(6),
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: AppColor.gold,
+        border: Border.all(
+          color: Colors.white.withValues(alpha: 0.9),
+          width: 3,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.28),
+            blurRadius: 30,
+            offset: const Offset(0, 14),
+          ),
+        ],
+      ),
+      child: ClipOval(
+        child: Image.asset(
+          Biodata.foto,
+          width: 150,
+          height: 150,
+          fit: BoxFit.cover,
+          errorBuilder: (context, error, stackTrace) => Container(
+            width: 150,
+            height: 150,
+            color: const Color(0xFFEFE2CF),
+            child: const Icon(
+              Icons.person_rounded,
+              size: 82,
+              color: AppColor.gradientEnd,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Satu baris data: ikon + label + isi data.
+class InfoTile extends StatelessWidget {
+  const InfoTile({
+    super.key,
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.color,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+      decoration: BoxDecoration(
+        color: AppColor.panel,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFFE7D8BC)),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF2C1F1B).withValues(alpha: 0.08),
+            blurRadius: 16,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.14),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: color.withValues(alpha: 0.28)),
+            ),
+            child: Icon(icon, color: color, size: 24),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: const TextStyle(
+                    fontSize: 11,
+                    letterSpacing: 1.7,
+                    fontWeight: FontWeight.w800,
+                    color: AppColor.textGrey,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  value,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                    color: AppColor.textDark,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ============================================================
+// ====== HALAMAN BARU: HASIL UJIAN MAHASISWA (ditambahkan) ======
+// ============================================================
+
+/// model untuk data mahasidwa untuk halaman Hasil Ujian.
+class Mahasiswa {
+  final String nama;
+  final double nilai;
+
+  Mahasiswa({required this.nama, required this.nilai});
+
+  /// status untuk kelulusannya: true = lulus, false = tidak lulus
+  bool get lulus => nilai >= 60;
+
+  String get statusText => lulus ? 'Lulus' : 'Tidak Lulus';
+}
+
+class HasilUjianPage extends StatefulWidget {
+  const HasilUjianPage({super.key});
+
+  @override
+  State<HasilUjianPage> createState() => _HasilUjianPageState();
+}
+
+class _HasilUjianPageState extends State<HasilUjianPage> {
+  // data awal sesuai contoh soal
+  final List<Mahasiswa> _daftarMahasiswa = [
+    Mahasiswa(nama: 'Ani', nilai: 50),
+    Mahasiswa(nama: 'Budi', nilai: 70),
+    Mahasiswa(nama: 'AL SHIRAF', nilai: 55),
+    Mahasiswa(nama: 'JIFRAN AL SHIRAF', nilai: 90),
+  ];
+
+  final TextEditingController _namaController = TextEditingController();
+  final TextEditingController _nilaiController = TextEditingController();
+  final _formKey = GlobalKey<FormState>();
+
+  // Filter tampilan: Semua, Lulus, Tidak Lulus
+  String _filter = 'Semua';
+
+  int? _sortColumnIndex;
+  bool _sortAscending = true;
+
+  List<Mahasiswa> get _dataTampil {
+    switch (_filter) {
+      case 'Lulus':
+        return _daftarMahasiswa.where((m) => m.lulus).toList();
+      case 'Tidak Lulus':
+        return _daftarMahasiswa.where((m) => !m.lulus).toList();
+      default:
+        return List.from(_daftarMahasiswa);
+    }
+  }
+
+  void _tambahData() {
+    if (_formKey.currentState!.validate()) {
+      final nama = _namaController.text.trim();
+      final nilai = double.parse(_nilaiController.text.trim());
+
+      setState(() {
+        _daftarMahasiswa.add(Mahasiswa(nama: nama, nilai: nilai));
+      });
+
+      _namaController.clear();
+      _nilaiController.clear();
+      Navigator.pop(context);
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Data "$nama" berhasil ditambahkan')),
+      );
+    }
+  }
+
+  void _hapusData(Mahasiswa m) {
+    setState(() {
+      _daftarMahasiswa.remove(m);
+    });
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text('Data "${m.nama}" dihapus')));
+  }
+
+  void _dialogTambahData() {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Tambah Data Mahasiswa'),
+          content: Form(
+            key: _formKey,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextFormField(
+                  controller: _namaController,
+                  decoration: const InputDecoration(labelText: 'Nama'),
+                  validator: (value) {
+                    if (value == null || value.trim().isEmpty) {
+                      return 'Nama tidak boleh kosong';
+                    }
+                    return null;
+                  },
+                ),
+                TextFormField(
+                  controller: _nilaiController,
+                  decoration: const InputDecoration(labelText: 'Nilai Akhir'),
+                  keyboardType: TextInputType.number,
+                  validator: (value) {
+                    if (value == null || value.trim().isEmpty) {
+                      return 'Nilai tidak boleh kosong';
+                    }
+                    final n = double.tryParse(value);
+                    if (n == null) return 'Nilai harus berupa angka';
+                    if (n < 0 || n > 100) return 'Nilai harus 0 - 100';
+                    return null;
+                  },
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Batal'),
+            ),
+            ElevatedButton(onPressed: _tambahData, child: const Text('Simpan')),
+          ],
+        );
+      },
+    );
+  }
+
+  void _sort<T>(
+    Comparable<T> Function(Mahasiswa m) getField,
+    int columnIndex,
+    bool ascending,
+  ) {
+    _daftarMahasiswa.sort((a, b) {
+      final aValue = getField(a);
+      final bValue = getField(b);
+      return ascending
+          ? Comparable.compare(aValue, bValue)
+          : Comparable.compare(bValue, aValue);
+    });
+    setState(() {
+      _sortColumnIndex = columnIndex;
+      _sortAscending = ascending;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final jumlahLulus = _daftarMahasiswa.where((m) => m.lulus).length;
+    final jumlahTidakLulus = _daftarMahasiswa.length - jumlahLulus;
+
+    return Scaffold(
+      backgroundColor: AppColor.background,
+      appBar: AppBar(
+        title: const Text('Hasil Akhir Ujian Mahasiswa'),
+        backgroundColor: AppColor.gradientEnd,
+        foregroundColor: Colors.white,
+      ),
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Ringkasan statistik
+          Padding(
+            padding: const EdgeInsets.all(12.0),
+            child: Row(
+              children: [
+                _buildStatCard(
+                  'Total',
+                  _daftarMahasiswa.length.toString(),
+                  AppColor.gradientEnd,
+                ),
+                const SizedBox(width: 8),
+                _buildStatCard('Lulus', jumlahLulus.toString(), Colors.green),
+                const SizedBox(width: 8),
+                _buildStatCard(
+                  'Tidak Lulus',
+                  jumlahTidakLulus.toString(),
+                  Colors.red,
+                ),
+              ],
+            ),
+          ),
+
+          // Filter
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12.0),
+            child: Row(
+              children: [
+                const Text('Filter: '),
+                const SizedBox(width: 8),
+                DropdownButton<String>(
+                  value: _filter,
+                  items: const [
+                    DropdownMenuItem(value: 'Semua', child: Text('Semua')),
+                    DropdownMenuItem(value: 'Lulus', child: Text('Lulus')),
+                    DropdownMenuItem(
+                      value: 'Tidak Lulus',
+                      child: Text('Tidak Lulus'),
+                    ),
+                  ],
+                  onChanged: (value) {
+                    setState(() => _filter = value!);
+                  },
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 8),
+
+          // Tabel data
+          Expanded(
+            child: _dataTampil.isEmpty
+                ? const Center(child: Text('Tidak ada data'))
+                : SingleChildScrollView(
+                    child: SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: DataTable(
+                        sortColumnIndex: _sortColumnIndex,
+                        sortAscending: _sortAscending,
+                        columns: [
+                          DataColumn(
+                            label: const Text('Nama'),
+                            onSort: (columnIndex, ascending) =>
+                                _sort((m) => m.nama, columnIndex, ascending),
+                          ),
+                          DataColumn(
+                            label: const Text('Nilai'),
+                            numeric: true,
+                            onSort: (columnIndex, ascending) =>
+                                _sort((m) => m.nilai, columnIndex, ascending),
+                          ),
+                          const DataColumn(label: Text('Status')),
+                          const DataColumn(label: Text('Aksi')),
+                        ],
+                        rows: _dataTampil.map((m) {
+                          return DataRow(
+                            cells: [
+                              DataCell(Text(m.nama)),
+                              DataCell(Text(m.nilai.toStringAsFixed(0))),
+                              DataCell(
+                                Chip(
+                                  label: Text(
+                                    m.statusText,
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                  backgroundColor: m.lulus
+                                      ? Colors.green
+                                      : Colors.red,
+                                ),
+                              ),
+                              DataCell(
+                                IconButton(
+                                  icon: const Icon(
+                                    Icons.delete_outline,
+                                    color: Colors.red,
+                                  ),
+                                  onPressed: () => _hapusData(m),
+                                ),
+                              ),
+                            ],
+                          );
+                        }).toList(),
+                      ),
+                    ),
+                  ),
+          ),
+        ],
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        backgroundColor: AppColor.gradientEnd,
+        foregroundColor: Colors.white,
+        onPressed: _dialogTambahData,
+        icon: const Icon(Icons.add),
+        label: const Text('Tambah Data'),
+      ),
+    );
+  }
+
+  Widget _buildStatCard(String label, String value, Color color) {
+    return Expanded(
+      child: Card(
+        color: color.withValues(alpha: 0.1),
+        child: Padding(
+          padding: const EdgeInsets.all(12.0),
+          child: Column(
+            children: [
+              Text(
+                value,
+                style: TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                  color: color,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(label, style: TextStyle(color: color)),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    _namaController.dispose();
+    _nilaiController.dispose();
+    super.dispose();
+  }
+}
+
+// ============================================================
+// ====== HALAMAN BARU: HASIL INPUT PROGRAM (ditambahkan) ======
+// ============================================================
+
+class ProfilePage extends StatefulWidget {
+  const ProfilePage({super.key});
+
+  @override
+  State<ProfilePage> createState() => _ProfilePageState();
+}
+
+class _ProfilePageState extends State<ProfilePage> {
+  final _formKey = GlobalKey<FormState>();
+  final _namaCtrl = TextEditingController();
+  final _npmCtrl = TextEditingController();
+  final _jurusanCtrl = TextEditingController();
+  final _picker = ImagePicker();
+
+  File? _foto;
+
+  // Data yang sudah tersimpan (untuk ditampilkan di kartu bawah)
+  String? _savedNama;
+  String? _savedNpm;
+  String? _savedJurusan;
+  File? _savedFoto;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadData();
+  }
+
+  @override
+  void dispose() {
+    _namaCtrl.dispose();
+    _npmCtrl.dispose();
+    _jurusanCtrl.dispose();
+    super.dispose();
+  }
+
+  // ---------- Ambil data yang tersimpan ----------
+  Future<void> _loadData() async {
+    final prefs = await SharedPreferences.getInstance();
+    final nama = prefs.getString('nama');
+    final npm = prefs.getString('npm');
+    final jurusan = prefs.getString('jurusan');
+    final fotoPath = prefs.getString('foto');
+
+    if (nama == null) return;
+
+    File? foto;
+    if (fotoPath != null && File(fotoPath).existsSync()) {
+      foto = File(fotoPath);
+    }
+
+    setState(() {
+      _namaCtrl.text = nama;
+      _npmCtrl.text = npm ?? '';
+      _jurusanCtrl.text = jurusan ?? '';
+      _foto = foto;
+      _savedNama = nama;
+      _savedNpm = npm;
+      _savedJurusan = jurusan;
+      _savedFoto = foto;
+    });
+  }
+
+  // ---------- Pilih foto (kamera / galeri) ----------
+  Future<void> _pickImage(ImageSource source) async {
+    final picked = await _picker.pickImage(
+      source: source,
+      maxWidth: 800,
+      imageQuality: 85,
+    );
+    if (picked != null) {
+      setState(() => _foto = File(picked.path));
+    }
+  }
+
+  void _showPickerSheet() {
+    showModalBottomSheet(
+      context: context,
+      builder: (_) => SafeArea(
+        child: Wrap(
+          children: [
+            ListTile(
+              leading: const Icon(Icons.photo_library),
+              title: const Text('Pilih dari Galeri'),
+              onTap: () {
+                Navigator.pop(context);
+                _pickImage(ImageSource.gallery);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo_camera),
+              title: const Text('Ambil dari Kamera'),
+              onTap: () {
+                Navigator.pop(context);
+                _pickImage(ImageSource.camera);
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ---------- Simpan data ----------
+  Future<void> _saveData() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    if (_foto == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Foto profile belum dipilih')),
+      );
+      return;
+    }
+
+    // Foto dipakai langsung dari path image_picker.
+    // (path_provider dihapus karena paket itu menarik objective_c yang
+    // punya build hook native-assets dan bikin build APK gagal.)
+    final fotoTersimpan = _foto!;
+
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('nama', _namaCtrl.text.trim());
+    await prefs.setString('npm', _npmCtrl.text.trim());
+    await prefs.setString('jurusan', _jurusanCtrl.text.trim());
+    await prefs.setString('foto', fotoTersimpan.path);
+
+    // Hapus cache gambar lama agar foto baru langsung tampil
+    await FileImage(fotoTersimpan).evict();
+
+    if (!mounted) return;
+    setState(() {
+      _savedNama = _namaCtrl.text.trim();
+      _savedNpm = _npmCtrl.text.trim();
+      _savedJurusan = _jurusanCtrl.text.trim();
+      _savedFoto = fotoTersimpan;
+      _foto = fotoTersimpan;
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Data berhasil disimpan')),
+    );
+  }
+
+  // ---------- UI ----------
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Data Mahasiswa'),
+        centerTitle: true,
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          children: [
+            // Foto profile
+            GestureDetector(
+              onTap: _showPickerSheet,
+              child: Stack(
+                alignment: Alignment.bottomRight,
+                children: [
+                  CircleAvatar(
+                    radius: 60,
+                    backgroundColor: Colors.grey.shade300,
+                    backgroundImage: _foto != null ? FileImage(_foto!) : null,
+                    child: _foto == null
+                        ? const Icon(Icons.person, size: 60, color: Colors.grey)
+                        : null,
+                  ),
+                  CircleAvatar(
+                    radius: 18,
+                    backgroundColor: Theme.of(context).colorScheme.primary,
+                    child: const Icon(Icons.camera_alt,
+                        size: 18, color: Colors.white),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 8),
+            const Text('Ketuk untuk memilih foto profile'),
+            const SizedBox(height: 24),
+
+            // Form
+            Form(
+              key: _formKey,
+              child: Column(
+                children: [
+                  TextFormField(
+                    controller: _namaCtrl,
+                    textCapitalization: TextCapitalization.words,
+                    decoration: const InputDecoration(
+                      labelText: 'Nama',
+                      prefixIcon: Icon(Icons.person_outline),
+                      border: OutlineInputBorder(),
+                    ),
+                    validator: (v) => (v == null || v.trim().isEmpty)
+                        ? 'Nama tidak boleh kosong'
+                        : null,
+                  ),
+                  const SizedBox(height: 16),
+                  TextFormField(
+                    controller: _npmCtrl,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(
+                      labelText: 'NPM',
+                      prefixIcon: Icon(Icons.badge_outlined),
+                      border: OutlineInputBorder(),
+                    ),
+                    validator: (v) => (v == null || v.trim().isEmpty)
+                        ? 'NPM tidak boleh kosong'
+                        : null,
+                  ),
+                  const SizedBox(height: 16),
+                  TextFormField(
+                    controller: _jurusanCtrl,
+                    textCapitalization: TextCapitalization.words,
+                    decoration: const InputDecoration(
+                      labelText: 'Jurusan',
+                      prefixIcon: Icon(Icons.school_outlined),
+                      border: OutlineInputBorder(),
+                    ),
+                    validator: (v) => (v == null || v.trim().isEmpty)
+                        ? 'Jurusan tidak boleh kosong'
+                        : null,
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 24),
+
+            // Tombol Save
+            SizedBox(
+              width: double.infinity,
+              height: 50,
+              child: FilledButton.icon(
+                onPressed: _saveData,
+                icon: const Icon(Icons.save),
+                label: const Text('Save'),
+              ),
+            ),
+
+            // Kartu data tersimpan
+            if (_savedNama != null) ...[
+              const SizedBox(height: 32),
+              Card(
+                elevation: 2,
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Row(
+                    children: [
+                      CircleAvatar(
+                        radius: 32,
+                        backgroundImage: _savedFoto != null
+                            ? FileImage(_savedFoto!)
+                            : null,
+                        child: _savedFoto == null
+                            ? const Icon(Icons.person)
+                            : null,
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              _savedNama!,
+                              style: const TextStyle(
+                                  fontSize: 18, fontWeight: FontWeight.bold),
+                            ),
+                            const SizedBox(height: 4),
+                            Text('NPM: $_savedNpm'),
+                            Text('Jurusan: $_savedJurusan'),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ============================================================
+// ====== TAMBAHAN BARU: POPUP INPUT DATA (SUDUT KANAN ATAS) ======
+// ============================================================
+// Fitur tugas: program dengan
+//   - input Nama
+//   - input NPM
+//   - input Jurusan
+//   - input Foto Profile
+//   - button Save (untuk menyimpan data)
+//
+// Semua halaman yang lama TIDAK diubah. Fitur ini hanya MENAMBAH
+// sebuah tombol kecil di sudut kanan atas halaman biodata. Tombol itu
+// membuka popup (dialog) untuk input data, lalu data disimpan di
+// SharedPreferences sehingga masih ada walau aplikasi ditutup.
+
+/// Tombol kecil di sudut kanan atas halaman biodata pembuka popup input.
+class PopupInputDataButton extends StatelessWidget {
+  const PopupInputDataButton({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(999),
+        onTap: () {
+          showDialog(
+            context: context,
+            builder: (_) => const PopupInputDataDialog(),
+          );
+        },
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          decoration: BoxDecoration(
+            color: AppColor.panel,
+            borderRadius: BorderRadius.circular(999),
+            border: Border.all(color: AppColor.gold, width: 1.4),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFF2C1F1B).withValues(alpha: 0.25),
+                blurRadius: 14,
+                offset: const Offset(0, 6),
+              ),
+            ],
+          ),
+          child: const Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.edit_note_rounded,
+                size: 20,
+                color: AppColor.gradientEnd,
+              ),
+              SizedBox(width: 6),
+              Text(
+                'Input Data',
+                style: TextStyle(
+                  fontSize: 12,
+                  letterSpacing: 0.4,
+                  fontWeight: FontWeight.w800,
+                  color: AppColor.textDark,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Isi popup: form input Nama, NPM, Jurusan, Foto Profile + tombol Save.
+class PopupInputDataDialog extends StatefulWidget {
+  const PopupInputDataDialog({super.key});
+
+  @override
+  State<PopupInputDataDialog> createState() => _PopupInputDataDialogState();
+}
+
+class _PopupInputDataDialogState extends State<PopupInputDataDialog> {
+  final _formKey = GlobalKey<FormState>();
+  final _namaCtrl = TextEditingController();
+  final _npmCtrl = TextEditingController();
+  final _jurusanCtrl = TextEditingController();
+  final _picker = ImagePicker();
+
+  // Foto yang sedang dipilih di form
+  File? _foto;
+
+  // Data yang sudah tersimpan (ditampilkan sebagai kartu di dalam popup)
+  String? _savedNama;
+  String? _savedNpm;
+  String? _savedJurusan;
+  File? _savedFoto;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadData();
+  }
+
+  @override
+  void dispose() {
+    _namaCtrl.dispose();
+    _npmCtrl.dispose();
+    _jurusanCtrl.dispose();
+    super.dispose();
+  }
+
+  /// Ambil data yang pernah disimpan supaya form langsung terisi.
+  Future<void> _loadData() async {
+    final prefs = await SharedPreferences.getInstance();
+    final nama = prefs.getString('nama');
+    if (nama == null) return;
+
+    final npm = prefs.getString('npm');
+    final jurusan = prefs.getString('jurusan');
+    final fotoPath = prefs.getString('foto');
+
+    File? foto;
+    if (fotoPath != null && File(fotoPath).existsSync()) {
+      foto = File(fotoPath);
+    }
+
+    if (!mounted) return;
+    setState(() {
+      _namaCtrl.text = nama;
+      _npmCtrl.text = npm ?? '';
+      _jurusanCtrl.text = jurusan ?? '';
+      _foto = foto;
+      _savedNama = nama;
+      _savedNpm = npm;
+      _savedJurusan = jurusan;
+      _savedFoto = foto;
+    });
+  }
+
+  /// Pilih foto profile dari galeri atau kamera.
+  Future<void> _pickImage(ImageSource source) async {
+    try {
+      final picked = await _picker.pickImage(
+        source: source,
+        maxWidth: 800,
+        imageQuality: 85,
+      );
+      if (picked != null) {
+        setState(() => _foto = File(picked.path));
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Gagal mengambil foto: $e')),
+      );
+    }
+  }
+
+  void _showPickerSheet() {
+    showModalBottomSheet(
+      context: context,
+      builder: (_) => SafeArea(
+        child: Wrap(
+          children: [
+            ListTile(
+              leading: const Icon(Icons.photo_library),
+              title: const Text('Pilih dari Galeri'),
+              onTap: () {
+                Navigator.pop(context);
+                _pickImage(ImageSource.gallery);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo_camera),
+              title: const Text('Ambil dari Kamera'),
+              onTap: () {
+                Navigator.pop(context);
+                _pickImage(ImageSource.camera);
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Tombol SAVE: validasi lalu simpan data.
+  Future<void> _saveData() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    if (_foto == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Foto profile belum dipilih')),
+      );
+      return;
+    }
+
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('nama', _namaCtrl.text.trim());
+    await prefs.setString('npm', _npmCtrl.text.trim());
+    await prefs.setString('jurusan', _jurusanCtrl.text.trim());
+    await prefs.setString('foto', _foto!.path);
+
+    // Supaya foto yang baru langsung tampil (bukan gambar cache)
+    await FileImage(_foto!).evict();
+
+    if (!mounted) return;
+    setState(() {
+      _savedNama = _namaCtrl.text.trim();
+      _savedNpm = _npmCtrl.text.trim();
+      _savedJurusan = _jurusanCtrl.text.trim();
+      _savedFoto = _foto;
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Data "${_namaCtrl.text.trim()}" berhasil disimpan')),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      backgroundColor: AppColor.panel,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 24),
+      titlePadding: const EdgeInsets.fromLTRB(20, 18, 20, 0),
+      title: const Row(
+        children: [
+          Icon(Icons.person_add_alt_1_rounded, color: AppColor.gradientEnd),
+          SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              'Input Data Mahasiswa',
+              style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
+            ),
+          ),
+        ],
+      ),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(height: 4),
+
+            // ---- Input Foto Profile ----
+            GestureDetector(
+              onTap: _showPickerSheet,
+              child: Stack(
+                alignment: Alignment.bottomRight,
+                children: [
+                  Container(
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(color: AppColor.gold, width: 3),
+                    ),
+                    child: CircleAvatar(
+                      radius: 48,
+                      backgroundColor: const Color(0xFFEFE2CF),
+                      backgroundImage:
+                          _foto != null ? FileImage(_foto!) : null,
+                      child: _foto == null
+                          ? const Icon(
+                              Icons.person_rounded,
+                              size: 48,
+                              color: AppColor.bronze,
+                            )
+                          : null,
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.all(6),
+                    decoration: const BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: AppColor.gradientEnd,
+                    ),
+                    child: const Icon(
+                      Icons.camera_alt,
+                      size: 16,
+                      color: Colors.white,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 6),
+            const Text(
+              'Ketuk foto untuk pilih gambar',
+              style: TextStyle(fontSize: 11, color: AppColor.textGrey),
+            ),
+            const SizedBox(height: 18),
+
+            // ---- Input Nama, NPM, Jurusan ----
+            Form(
+              key: _formKey,
+              child: Column(
+                children: [
+                  TextFormField(
+                    controller: _namaCtrl,
+                    textCapitalization: TextCapitalization.words,
+                    decoration: const InputDecoration(
+                      labelText: 'Nama',
+                      prefixIcon: Icon(Icons.person_outline),
+                      border: OutlineInputBorder(),
+                      isDense: true,
+                    ),
+                    validator: (v) => (v == null || v.trim().isEmpty)
+                        ? 'Nama tidak boleh kosong'
+                        : null,
+                  ),
+                  const SizedBox(height: 14),
+                  TextFormField(
+                    controller: _npmCtrl,
+                    keyboardType: TextInputType.number,
+                    inputFormatters: [
+                      FilteringTextInputFormatter.digitsOnly,
+                    ],
+                    decoration: const InputDecoration(
+                      labelText: 'NPM',
+                      prefixIcon: Icon(Icons.badge_outlined),
+                      border: OutlineInputBorder(),
+                      isDense: true,
+                    ),
+                    validator: (v) => (v == null || v.trim().isEmpty)
+                        ? 'NPM tidak boleh kosong'
+                        : null,
+                  ),
+                  const SizedBox(height: 14),
+                  TextFormField(
+                    controller: _jurusanCtrl,
+                    textCapitalization: TextCapitalization.words,
+                    decoration: const InputDecoration(
+                      labelText: 'Jurusan',
+                      prefixIcon: Icon(Icons.school_outlined),
+                      border: OutlineInputBorder(),
+                      isDense: true,
+                    ),
+                    validator: (v) => (v == null || v.trim().isEmpty)
+                        ? 'Jurusan tidak boleh kosong'
+                        : null,
+                  ),
+                ],
+              ),
+            ),
+
+            // ---- Kartu data yang sudah tersimpan ----
+            if (_savedNama != null) ...[
+              const SizedBox(height: 18),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: const Color(0xFFE7D8BC)),
+                ),
+                child: Row(
+                  children: [
+                    CircleAvatar(
+                      radius: 26,
+                      backgroundColor: const Color(0xFFEFE2CF),
+                      backgroundImage:
+                          _savedFoto != null ? FileImage(_savedFoto!) : null,
+                      child: _savedFoto == null
+                          ? const Icon(Icons.person, color: AppColor.bronze)
+                          : null,
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            _savedNama!,
+                            style: const TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w800,
+                              color: AppColor.textDark,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            'NPM: ${_savedNpm ?? '-'}',
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: AppColor.textGrey,
+                            ),
+                          ),
+                          Text(
+                            'Jurusan: ${_savedJurusan ?? '-'}',
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: AppColor.textGrey,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const Icon(
+                      Icons.check_circle,
+                      color: Colors.green,
+                      size: 20,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Tutup'),
+        ),
+        FilledButton.icon(
+          onPressed: _saveData,
+          icon: const Icon(Icons.save, size: 18),
+          label: const Text('Save'),
+          style: FilledButton.styleFrom(
+            backgroundColor: AppColor.gradientEnd,
+          ),
+        ),
+      ],
+    );
+  }
+}
